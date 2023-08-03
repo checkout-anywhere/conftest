@@ -13,7 +13,8 @@ IMAGE := openpolicyagent/conftest
 
 DOCKER := DOCKER_BUILDKIT=1 docker
 
-DOCKER_PLATFORMS := linux/amd64,linux/arm64
+#DOCKER_PLATFORMS := linux/amd64,linux/arm64
+DOCKER_PLATFORMS := linux/amd64
 
 GIT_VERSION := $(shell git describe --abbrev=4 --dirty --always --tags)
 
@@ -61,17 +62,17 @@ help:
 ##@ Releases
 #
 
-.PHONY: image
-image: ## Builds a Docker image for Conftest.
-	@$(DOCKER) build . -t $(IMAGE):latest
+# .PHONY: image
+# image: ## Builds a Docker image for Conftest.
+# 	@$(DOCKER) build . -t $(IMAGE):latest
 
-.PHONY: examples
-examples: ## Builds the examples Docker image.
-	@$(DOCKER) build . --target examples -t $(IMAGE):examples
+# .PHONY: examples
+# examples: ## Builds the examples Docker image.
+# 	@$(DOCKER) build . --target examples -t $(IMAGE):examples
 
-.PHONY: push
-push: ## Pushes the examples and Conftest image to DockerHub. Requires `TAG` parameter.
-	@test -n "$(TAG)" || (echo "TAG parameter not set." && exit 1)
-	@$(DOCKER) buildx build . --push --build-arg VERSION="$(TAG)" -t $(IMAGE):$(TAG) --platform $(DOCKER_PLATFORMS)
-	@$(DOCKER) buildx build . --push --build-arg VERSION="$(TAG)" -t $(IMAGE):latest --platform $(DOCKER_PLATFORMS)
-	@$(DOCKER) buildx build . --push --target examples -t $(IMAGE):examples --platform $(DOCKER_PLATFORMS)
+# .PHONY: push
+# push: ## Pushes the examples and Conftest image to DockerHub. Requires `TAG` parameter.
+# 	@test -n "$(TAG)" || (echo "TAG parameter not set." && exit 1)
+# 	@$(DOCKER) buildx build . --push --build-arg VERSION="$(TAG)" -t $(IMAGE):$(TAG) --platform $(DOCKER_PLATFORMS)
+# 	@$(DOCKER) buildx build . --push --build-arg VERSION="$(TAG)" -t $(IMAGE):latest --platform $(DOCKER_PLATFORMS)
+# 	@$(DOCKER) buildx build . --push --target examples -t $(IMAGE):examples --platform $(DOCKER_PLATFORMS)
