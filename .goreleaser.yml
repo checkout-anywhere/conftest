@@ -7,13 +7,13 @@ builds:
   env:
   - CGO_ENABLED=0
   goos:
-  - windows
+  # - windows
   - linux
-  - darwin
+  # - darwin
   goarch:
   - amd64
-  - arm64
-  - ppc64le
+  # - arm64
+  # - ppc64le
   ldflags:
   - "-s"
   - "-w"
