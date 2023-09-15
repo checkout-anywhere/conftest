@@ -44,7 +44,11 @@ jobs:
       - name: setup go
         uses: actions/setup-go@v4
         with:
+<<<<<<< HEAD
           go-version: "1.23.x"
+=======
+          go-version: "1.21.1"
+>>>>>>> 629199d (chore: Update dependencies)
 
       - name: release
         uses: goreleaser/goreleaser-action@v6
