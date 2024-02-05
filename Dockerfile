@@ -14,7 +14,7 @@ COPY . .
 
 ## BUILDER STAGE ##
 FROM base as builder
-HEALTHCHECK NONE
+HEALTHCHECK --interval=1m --timeout=3s --start-period=30s --start-interval=5s CMD pwd || exit 1
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} go build -o conftest -ldflags="-w -s -X github.com/open-policy-agent/conftest/internal/commands.version=${VERSION}" main.go
 
 ## TEST STAGE ##
@@ -56,8 +56,7 @@ FROM alpine:3.21.2
 
 # Install git for protocols that depend on it when using conftest pull
 RUN apk add --no-cache git
-
-HEALTHCHECK NONE
+HEALTHCHECK --interval=1m --timeout=3s --start-period=30s --start-interval=5s CMD pwd || exit 1
 
 COPY --from=builder /app/conftest /
 RUN ln -s /conftest /usr/local/bin/conftest
