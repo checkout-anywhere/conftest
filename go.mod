@@ -19,7 +19,7 @@ require (
 	github.com/jstemmer/go-junit-report v1.0.0
 	github.com/logrusorgru/aurora v2.0.3+incompatible
 	github.com/magiconair/properties v1.8.7
-	github.com/moby/buildkit v0.11.5
+	github.com/moby/buildkit v0.12.5
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/open-policy-agent/opa v0.59.0
 	github.com/opencontainers/image-spec v1.1.0-rc5
@@ -55,7 +55,7 @@ require (
 	github.com/bitly/go-simplejson v0.5.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cockroachdb/apd/v3 v3.2.1 // indirect
-	github.com/containerd/typeurl v1.0.2 // indirect
+	github.com/containerd/typeurl/v2 v2.1.1 // indirect
 	github.com/docker/docker v24.0.7+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
@@ -78,7 +78,7 @@ require (
 	github.com/hashicorp/hcl/v2 v2.17.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
-	github.com/klauspost/compress v1.16.5 // indirect
+	github.com/klauspost/compress v1.17.2 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
