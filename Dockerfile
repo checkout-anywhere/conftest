@@ -56,7 +56,7 @@ FROM alpine:3.21.2
 # Install git for protocols that depend on it when using conftest pull
 RUN apk add --no-cache git
 
-HEALTHCHECK --interval=5m --timeout=3s --start-interval= 5s CMD ls || exit 1
+HEALTHCHECK --interval=5m --timeout=3s --start-interval=5s CMD ls || exit 1
 
 COPY --from=builder /app/conftest /
 RUN ln -s /conftest /usr/local/bin/conftest
