@@ -60,7 +60,7 @@ By default, it will use the regular stdout output. For a full list of available 
 The test command supports the '--update' flag to fetch the latest version of the policy at the given url.
 It expects one or more urls to fetch the latest policies from, e.g.:
 
-	$ conftest test --update opa.azurecr.io/test
+	$ conftest test --update oci://opa.azurecr.io/test
 
 See the pull command for more details on supported protocols for fetching policies.
 
@@ -82,7 +82,7 @@ func NewTestCommand(ctx context.Context) *cobra.Command {
 		Use:   "test <path> [path [...]]",
 		Short: "Test your configuration files using Open Policy Agent",
 		Long:  testDesc,
-		PreRunE: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			flagNames := []string{
 				"all-namespaces",
 				"combine",

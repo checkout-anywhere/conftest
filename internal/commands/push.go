@@ -59,7 +59,7 @@ func NewPushCommand(ctx context.Context, logger *log.Logger) *cobra.Command {
 		Use:   "push <repository>",
 		Short: "Push OPA bundles to an OCI registry",
 		Long:  pushDesc,
-		PreRunE: func(cmd *cobra.Command, args []string) error {
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
 			if err := viper.BindPFlag("policy", cmd.Flags().Lookup("policy")); err != nil {
 				return fmt.Errorf("bind flag: %w", err)
 			}
@@ -130,7 +130,9 @@ func pushBundle(ctx context.Context, repository, policyPath, dataPath string) (*
 		return nil, fmt.Errorf("constructing repository: %w", err)
 	}
 
-	registry.SetupClient(dest)
+	if err := registry.SetupClient(dest); err != nil {
+		return nil, fmt.Errorf("setting up the registry client: %w", err)
+	}
 
 	layers, err := pushLayers(ctx, dest, policyPath, dataPath)
 	if err != nil {
