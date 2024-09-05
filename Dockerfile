@@ -1,4 +1,4 @@
-FROM golang:1.22.4-alpine as base
+FROM golang:1.22.6-alpine as base
 ARG TARGETARCH
 ARG VERSION
 ARG COMMIT
@@ -52,7 +52,7 @@ RUN go install cuelang.org/go/cmd/cue@latest
 WORKDIR /examples
 
 ## RELEASE ##
-FROM alpine:3.20.1
+FROM alpine:3.20.2
 
 # Install git for protocols that depend on it when using conftest pull
 RUN apk add --no-cache git
