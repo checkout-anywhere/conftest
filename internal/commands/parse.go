@@ -43,7 +43,7 @@ func NewParseCommand() *cobra.Command {
 			return nil
 		},
 		RunE: func(_ *cobra.Command, files []string) error {
-			var configurations map[string]interface{}
+			var configurations map[string]any
 			var err error
 			if viper.GetString("parser") != "" {
 				configurations, err = parser.ParseConfigurationsAs(files, viper.GetString("parser"))
@@ -77,18 +77,18 @@ func NewParseCommand() *cobra.Command {
 	return &cmd
 }
 
-func formatSingleJSON(configurations map[string]interface{}) (string, error) {
+func formatSingleJSON(configurations map[string]any) (string, error) {
 	if len(configurations) != 1 {
 		return "", fmt.Errorf("formatSingleJSON: only supports one configuration")
 	}
-	var config interface{}
+	var config any
 	for _, cfg := range configurations {
 		config = cfg
 	}
-	marshalled, err := json.MarshalIndent(config, "", "  ")
+	marshaled, err := json.MarshalIndent(config, "", "  ")
 	if err != nil {
 		return "", err
 	}
 
-	return string(marshalled), nil
+	return string(marshaled), nil
 }
