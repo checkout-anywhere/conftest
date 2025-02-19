@@ -34,9 +34,11 @@ type Engine struct {
 	docs          map[string]string
 }
 
-type compilerOptions struct {
-	strict       bool
-	capabilities *ast.Capabilities
+// CompilerOptions defines the options for the Rego compiler.
+type CompilerOptions struct {
+	Strict       bool
+	RegoVersion  string
+	Capabilities *ast.Capabilities
 }
 
 var (
@@ -44,32 +46,36 @@ var (
 	failureRegex = regexp.MustCompile("^(deny|violation)(_[a-zA-Z0-9]+)*$")
 )
 
-func newCompilerOptions(strict bool, capabilities string) (compilerOptions, error) {
-	c := ast.CapabilitiesForThisVersion()
-	if capabilities != "" {
-		f, err := os.Open(capabilities)
-		if err != nil {
-			return compilerOptions{}, fmt.Errorf("capabilities not opened: %w", err)
-		}
-		defer f.Close()
-		c, err = ast.LoadCapabilitiesJSON(f)
-		if err != nil {
-			return compilerOptions{}, fmt.Errorf("capabilities not loaded: %w", err)
-		}
-	}
-	return compilerOptions{
-		strict:       strict,
-		capabilities: c,
-	}, nil
+func newCompiler(opts CompilerOptions) *ast.Compiler {
+	return ast.NewCompiler().
+		WithEnablePrintStatements(true).
+		WithCapabilities(opts.Capabilities).
+		WithStrict(opts.Strict)
 }
 
-func newCompiler(c compilerOptions) *ast.Compiler {
-	return ast.NewCompiler().WithEnablePrintStatements(true).WithCapabilities(c.capabilities).WithStrict(c.strict)
+// LoadCapabilities loads Rego JSON capabilities given a path. If no path is supplied, the default
+// capabilities are returned.
+func LoadCapabilities(path string) (*ast.Capabilities, error) {
+	if path == "" {
+		return ast.CapabilitiesForThisVersion(), nil
+	}
+	return ast.LoadCapabilitiesFile(path)
 }
 
 // Load returns an Engine after loading all of the specified policies.
-func Load(policyPaths []string, c compilerOptions) (*Engine, error) {
-	policies, err := loader.NewFileLoader().WithProcessAnnotation(true).Filtered(policyPaths, func(_ string, info os.FileInfo, _ int) bool {
+func Load(policyPaths []string, opts CompilerOptions) (*Engine, error) {
+	var regoVer ast.RegoVersion
+	switch opts.RegoVersion {
+	case "v0", "V0":
+		regoVer = ast.RegoV0
+	case "v1", "V1":
+		regoVer = ast.RegoV1
+	default:
+		return nil, fmt.Errorf("invalid Rego version: %s", opts.RegoVersion)
+	}
+
+	l := loader.NewFileLoader().WithProcessAnnotation(true).WithRegoVersion(regoVer)
+	policies, err := l.Filtered(policyPaths, func(_ string, info os.FileInfo, _ int) bool {
 		return !info.IsDir() && !strings.HasSuffix(info.Name(), bundle.RegoExt)
 	})
 
@@ -80,7 +86,7 @@ func Load(policyPaths []string, c compilerOptions) (*Engine, error) {
 	}
 
 	modules := policies.ParsedModules()
-	compiler := newCompiler(c)
+	compiler := newCompiler(opts)
 	compiler.Compile(modules)
 	if compiler.Failed() {
 		return nil, fmt.Errorf("get compiler: %w", compiler.Errors)
@@ -108,15 +114,11 @@ func Load(policyPaths []string, c compilerOptions) (*Engine, error) {
 }
 
 // LoadWithData returns an Engine after loading all of the specified policies and data paths.
-func LoadWithData(policyPaths []string, dataPaths []string, capabilities string, strict bool) (*Engine, error) {
-	compilerOptions, err := newCompilerOptions(strict, capabilities)
-	if err != nil {
-		return nil, fmt.Errorf("get compiler options: %w", err)
-	}
-
+func LoadWithData(policyPaths []string, dataPaths []string, opts CompilerOptions) (*Engine, error) {
 	engine := &Engine{}
 	if len(policyPaths) > 0 {
-		engine, err = Load(policyPaths, compilerOptions)
+		var err error
+		engine, err = Load(policyPaths, opts)
 		if err != nil {
 			return nil, fmt.Errorf("loading policies: %w", err)
 		}
@@ -170,7 +172,7 @@ func (e *Engine) ShowBuiltinErrors() {
 }
 
 // Check executes all of the loaded policies against the input and returns the results.
-func (e *Engine) Check(ctx context.Context, configs map[string]interface{}, namespace string) ([]output.CheckResult, error) {
+func (e *Engine) Check(ctx context.Context, configs map[string]any, namespace string) ([]output.CheckResult, error) {
 	var checkResults []output.CheckResult
 	for path, config := range configs {
 
@@ -179,7 +181,7 @@ func (e *Engine) Check(ctx context.Context, configs map[string]interface{}, name
 		//
 		// If the current configuration contains multiple configurations, evaluate each policy
 		// independent from one another and aggregate the results under the same file name.
-		if subconfigs, exist := config.([]interface{}); exist {
+		if subconfigs, exist := config.([]any); exist {
 
 			checkResult := output.CheckResult{
 				FileName:  path,
@@ -213,7 +215,7 @@ func (e *Engine) Check(ctx context.Context, configs map[string]interface{}, name
 }
 
 // CheckCombined combines the input and evaluates the policies against the combined result.
-func (e *Engine) CheckCombined(ctx context.Context, configs map[string]interface{}, namespace string) (output.CheckResult, error) {
+func (e *Engine) CheckCombined(ctx context.Context, configs map[string]any, namespace string) (output.CheckResult, error) {
 	combinedConfigs := parser.CombineConfigurations(configs)
 
 	result, err := e.check(ctx, "Combined", combinedConfigs["Combined"], namespace)
@@ -288,7 +290,7 @@ func (e *Engine) Runtime() *ast.Term {
 	return ast.NewTerm(obj)
 }
 
-func (e *Engine) check(ctx context.Context, path string, config interface{}, namespace string) (output.CheckResult, error) {
+func (e *Engine) check(ctx context.Context, path string, config any, namespace string) (output.CheckResult, error) {
 	if err := e.addFileInfo(ctx, path); err != nil {
 		return output.CheckResult{}, fmt.Errorf("add file info: %w", err)
 	}
@@ -439,7 +441,7 @@ func (e *Engine) addFileInfo(ctx context.Context, path string) error {
 // Example queries could include:
 // data.main.deny to query the deny rule in the main namespace
 // data.main.warn to query the warn rule in the main namespace
-func (e *Engine) query(ctx context.Context, input interface{}, query string) (output.QueryResult, error) {
+func (e *Engine) query(ctx context.Context, input any, query string) (output.QueryResult, error) {
 	ph := printHook{s: &[]string{}}
 	builtInErrors := &[]topdown.Error{}
 	options := []func(r *rego.Rego){
@@ -484,9 +486,9 @@ func (e *Engine) query(ctx context.Context, input interface{}, query string) (ou
 			//
 			// When an expression does not have a slice of values, the expression did not
 			// evaluate to true, and no message was returned.
-			var expressionValues []interface{}
-			if _, ok := expression.Value.([]interface{}); ok {
-				expressionValues = expression.Value.([]interface{})
+			var expressionValues []any
+			if _, ok := expression.Value.([]any); ok {
+				expressionValues = expression.Value.([]any)
 			}
 			if len(expressionValues) == 0 {
 				results = append(results, output.Result{})
@@ -500,15 +502,21 @@ func (e *Engine) query(ctx context.Context, input interface{}, query string) (ou
 				case string:
 					result := output.Result{
 						Message: val,
+						Metadata: map[string]any{
+							"query": query,
+						},
 					}
 					results = append(results, result)
 
 				// Policies that return metadata (e.g. deny[{"msg": msg}])
-				case map[string]interface{}:
+				case map[string]any:
 					result, err := output.NewResult(val)
 					if err != nil {
 						return output.QueryResult{}, fmt.Errorf("new result: %w", err)
 					}
+
+					// Safe to set as Metadata map is initialized by NewResult
+					result.Metadata["query"] = query
 
 					results = append(results, result)
 				}
