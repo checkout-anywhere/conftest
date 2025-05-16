@@ -39,10 +39,14 @@ test-examples: build ## Runs the tests for the examples.
 	@bats acceptance.bats
 
 .PHONY: test-acceptance
-test-acceptance: build ## Runs the tests in the test folder.
+test-acceptance: build install-test-deps ## Runs the tests in the test folder.
 	@for testdir in $(TEST_DIRS) ; do \
 		cd $(CURDIR)/$$testdir && CONFTEST=$(ROOT_DIR)/$(BIN) bats test.bats || exit 1; \
 	done
+
+.PHONY: install-test-deps
+install-test-deps: ## Installs dependencies required for testing.
+	@command -v pre-commit >/dev/null 2>&1 || python -m pip install -r requirements-dev.txt
 
 .PHONY: test-oci
 test-oci: ## Runs the OCI integration test for push and pull.
@@ -61,18 +65,3 @@ help:
 #
 ##@ Releases
 #
-
-# .PHONY: image
-# image: ## Builds a Docker image for Conftest.
-# 	@$(DOCKER) build . -t $(IMAGE):latest
-
-# .PHONY: examples
-# examples: ## Builds the examples Docker image.
-# 	@$(DOCKER) build . --target examples -t $(IMAGE):examples
-
-# .PHONY: push
-# push: ## Pushes the examples and Conftest image to DockerHub. Requires `TAG` parameter.
-# 	@test -n "$(TAG)" || (echo "TAG parameter not set." && exit 1)
-# 	@$(DOCKER) buildx build . --push --build-arg VERSION="$(TAG)" -t $(IMAGE):$(TAG) --platform $(DOCKER_PLATFORMS)
-# 	@$(DOCKER) buildx build . --push --build-arg VERSION="$(TAG)" -t $(IMAGE):latest --platform $(DOCKER_PLATFORMS)
-# 	@$(DOCKER) buildx build . --push --target examples -t $(IMAGE):examples --platform $(DOCKER_PLATFORMS)

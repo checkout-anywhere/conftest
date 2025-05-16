@@ -39,7 +39,7 @@ type TestRunner struct {
 
 // Run executes the TestRunner, verifying all Rego policies against the given
 // list of configuration files.
-func (t *TestRunner) Run(ctx context.Context, fileList []string) ([]output.CheckResult, error) {
+func (t *TestRunner) Run(ctx context.Context, fileList []string) (output.CheckResults, error) {
 	files, err := parseFileList(fileList, t.Ignore)
 	if err != nil {
 		return nil, fmt.Errorf("parse files: %w", err)
@@ -76,6 +76,7 @@ func (t *TestRunner) Run(ctx context.Context, fileList []string) ([]output.Check
 	if err != nil {
 		return nil, fmt.Errorf("load: %w", err)
 	}
+	engine.EnableInterQueryCache()
 
 	if t.Trace {
 		engine.EnableTracing()
@@ -90,7 +91,7 @@ func (t *TestRunner) Run(ctx context.Context, fileList []string) ([]output.Check
 		namespaces = engine.Namespaces()
 	}
 
-	var results []output.CheckResult
+	var results output.CheckResults
 	for _, namespace := range namespaces {
 		if t.Combine {
 			result, err := engine.CheckCombined(ctx, configurations, namespace)
@@ -148,19 +149,17 @@ func parseFileList(fileList []string, ignoreRegex string) ([]string, error) {
 	return files, nil
 }
 
-func getFilesFromDirectory(directory string, ignoreRegex string) ([]string, error) {
-	regexp, err := regexp.Compile(ignoreRegex)
-	if err != nil {
-		return nil, fmt.Errorf("given regexp couldn't be parsed :%w", err)
-	}
-
-	var files []string
-	walk := func(currentPath string, info os.FileInfo, err error) error {
+func getWalkFn(visitedDirs map[string]bool, files *[]string, ignoreRegex string, regexp *regexp.Regexp) filepath.WalkFunc {
+	return func(currentPath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return fmt.Errorf("walk path: %w", err)
 		}
 
 		if info.IsDir() {
+			if visitedDirs[currentPath] {
+				return filepath.SkipDir
+			}
+			visitedDirs[currentPath] = true
 			return nil
 		}
 
@@ -168,14 +167,44 @@ func getFilesFromDirectory(directory string, ignoreRegex string) ([]string, erro
 			return nil
 		}
 
-		if parser.FileSupported(currentPath) {
-			files = append(files, currentPath)
+		if info.Mode()&os.ModeSymlink == 0 {
+			if parser.FileSupported(currentPath) {
+				*files = append(*files, currentPath)
+			}
+			return nil
+		}
+
+		realPath, err := filepath.EvalSymlinks(currentPath)
+		if err != nil {
+			return err
+		}
+
+		ri, err := os.Stat(realPath)
+		if err != nil {
+			return err
+		}
+
+		if ri.IsDir() {
+			return filepath.Walk(realPath, getWalkFn(visitedDirs, files, ignoreRegex, regexp))
+		}
+
+		if parser.FileSupported(realPath) {
+			*files = append(*files, realPath)
 		}
 
 		return nil
 	}
+}
 
-	err = filepath.Walk(directory, walk)
+func getFilesFromDirectory(directory string, ignoreRegex string) ([]string, error) {
+	regexp, err := regexp.Compile(ignoreRegex)
+	if err != nil {
+		return nil, fmt.Errorf("given regexp couldn't be parsed :%w", err)
+	}
+
+	var files []string
+	visitedDirs := make(map[string]bool)
+	err = filepath.Walk(directory, getWalkFn(visitedDirs, &files, ignoreRegex, regexp))
 	if err != nil {
 		return nil, err
 	}

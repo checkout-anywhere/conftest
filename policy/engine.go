@@ -19,19 +19,21 @@ import (
 	"github.com/open-policy-agent/opa/storage"
 	"github.com/open-policy-agent/opa/storage/inmem"
 	"github.com/open-policy-agent/opa/topdown"
+	"github.com/open-policy-agent/opa/topdown/cache"
 	"github.com/open-policy-agent/opa/topdown/print"
 	"github.com/open-policy-agent/opa/version"
 )
 
 // Engine represents the policy engine.
 type Engine struct {
-	trace         bool
-	builtinErrors bool
-	modules       map[string]*ast.Module
-	compiler      *ast.Compiler
-	store         storage.Store
-	policies      map[string]string
-	docs          map[string]string
+	trace                 bool
+	builtinErrors         bool
+	modules               map[string]*ast.Module
+	compiler              *ast.Compiler
+	store                 storage.Store
+	policies              map[string]string
+	docs                  map[string]string
+	enableInterQueryCache bool
 }
 
 // CompilerOptions defines the options for the Rego compiler.
@@ -123,20 +125,14 @@ func LoadWithData(policyPaths []string, dataPaths []string, opts CompilerOptions
 			return nil, fmt.Errorf("loading policies: %w", err)
 		}
 	}
-
-	// FilteredPaths will recursively find all file paths that contain a valid document
-	// extension from the given list of data paths.
-	allDocumentPaths, err := loader.FilteredPaths(dataPaths, func(_ string, info os.FileInfo, _ int) bool {
+	filter := func(_ string, info os.FileInfo, _ int) bool {
 		if info.IsDir() {
 			return false
 		}
 		return !contains([]string{".yaml", ".yml", ".json"}, filepath.Ext(info.Name()))
-	})
-	if err != nil {
-		return nil, fmt.Errorf("filter data paths: %w", err)
 	}
 
-	documents, err := loader.NewFileLoader().All(allDocumentPaths)
+	documents, err := loader.NewFileLoader().Filtered(dataPaths, filter)
 	if err != nil {
 		return nil, fmt.Errorf("load documents: %w", err)
 	}
@@ -145,6 +141,12 @@ func LoadWithData(policyPaths []string, dataPaths []string, opts CompilerOptions
 		return nil, fmt.Errorf("get documents store: %w", err)
 	}
 
+	// FilteredPaths will recursively find all file paths that contain a valid document
+	// extension from the given list of data paths.
+	allDocumentPaths, err := loader.FilteredPaths(dataPaths, filter)
+	if err != nil {
+		return nil, fmt.Errorf("filter data paths: %w", err)
+	}
 	documentContents := make(map[string]string)
 	for _, documentPath := range allDocumentPaths {
 		contents, err := os.ReadFile(documentPath)
@@ -171,9 +173,13 @@ func (e *Engine) ShowBuiltinErrors() {
 	e.builtinErrors = true
 }
 
+func (e *Engine) EnableInterQueryCache() {
+	e.enableInterQueryCache = true
+}
+
 // Check executes all of the loaded policies against the input and returns the results.
-func (e *Engine) Check(ctx context.Context, configs map[string]any, namespace string) ([]output.CheckResult, error) {
-	var checkResults []output.CheckResult
+func (e *Engine) Check(ctx context.Context, configs map[string]interface{}, namespace string) (output.CheckResults, error) {
+	var checkResults output.CheckResults
 	for path, config := range configs {
 
 		// It is possible for a configuration to have multiple configurations. An example of this
@@ -453,6 +459,9 @@ func (e *Engine) query(ctx context.Context, input any, query string) (output.Que
 		rego.Trace(e.trace),
 		rego.PrintHook(ph),
 		rego.BuiltinErrorList(builtInErrors),
+	}
+	if e.enableInterQueryCache {
+		options = append(options, rego.InterQueryBuiltinCache(cache.NewInterQueryCacheWithContext(ctx, nil)))
 	}
 
 	regoInstance := rego.New(options...)

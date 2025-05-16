@@ -35,7 +35,7 @@ Save the following as `policy/combine.rego`:
 ```rego
 package main
 
-deny[msg] {
+deny contains msg if {
   input[i].contents.kind == "Deployment"
 
   deployment := input[i].contents
@@ -45,7 +45,7 @@ deny[msg] {
   msg := sprintf("Deployment %v with selector %v does not match any Services", [deployment.metadata.name, deployment.spec.selector.matchLabels])
 }
 
-service_selects_app(app) {
+service_selects_app(app) if {
   input[service].contents.kind == "Service"
   input[service].contents.spec.selector.app == app
 }
@@ -328,6 +328,25 @@ success file=examples/kubernetes/deployment.yaml 1
 ```console
 $ conftest test --proto-file-dirs examples/textproto/protos -p examples/textproto/policy examples/textproto/fail.textproto -o sarif
 {"version":"2.1.0","$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/main/sarif-2.1/schema/sarif-schema-2.1.0.json","runs":[{"tool":{"driver":{"informationUri":"https://github.com/open-policy-agent/conftest","name":"conftest","rules":[{"id":"main/deny","shortDescription":{"text":"Policy violation"}}]}},"invocations":[{"executionSuccessful":true,"exitCode":1,"exitCodeDescription":"Policy violations found"}],"results":[{"ruleId":"main/deny","ruleIndex":0,"level":"error","message":{"text":"fail: Power level must be over 9000"},"locations":[{"physicalLocation":{"artifactLocation":{"uri":"examples/textproto/fail.textproto"}}}]}]}]}
+```
+
+## `--trace`
+
+When debugging policies, it can be useful to see exactly how the policy is being evaluated. The `--trace` flag provides detailed output showing how the Rego queries are processed.
+
+**Important**: The `--trace` flag only works with the default standard output format (`--output=stdout`). When both `--trace` and `--output` are specified, the output format takes priority and tracing will not be used.
+
+Example usage:
+
+```console
+$ conftest test --trace deployment.yaml
+file: deployment.yaml | query: data.main.deny
+TRAC Enter data.main.deny = _
+TRAC | Eval data.main.deny = _
+TRAC | Index data.main.deny = _ matched 3 rules)
+TRAC | Enter data.main.deny
+TRAC | | Eval data.kubernetes.is_deployment
+...
 ```
 
 ## `--parser`
