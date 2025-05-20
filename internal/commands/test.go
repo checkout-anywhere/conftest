@@ -65,9 +65,18 @@ It expects one or more urls to fetch the latest policies from, e.g.:
 See the pull command for more details on supported protocols for fetching policies.
 
 When debugging policies it can be useful to use a more verbose policy evaluation output. By using the '--trace' flag
-the output will include a detailed trace of how the policy was evaluated, e.g.
+the output will include a detailed trace of how the policy was evaluated. The trace output will be written to stderr,
+while the regular output will be written to stdout. This allows you to use the '--trace' flag together with any output
+format, including table, JSON, etc.
 
+    # Trace output
 	$ conftest test --trace <input-file>
+
+	# Trace output with any non-standard output format
+	$ conftest test --trace --output=table <input-file>
+
+	# Redirect trace output to a file while viewing formatted output
+	$ conftest test --trace --output=json <input-file> 2>trace.log
 `
 
 // TestRun stores the compiler and store for a test run.
@@ -132,11 +141,9 @@ func NewTestCommand(ctx context.Context) *cobra.Command {
 				return fmt.Errorf("running test: %w", err)
 			}
 
-			var exitCode int
+			exitCode := results.ExitCode()
 			if runner.FailOnWarn {
-				exitCode = output.ExitCodeFailOnWarn(results)
-			} else {
-				exitCode = output.ExitCode(results)
+				exitCode = results.ExitCodeFailOnWarn()
 			}
 
 			if !runner.Quiet || exitCode != 0 {
@@ -177,7 +184,7 @@ func NewTestCommand(ctx context.Context) *cobra.Command {
 	cmd.Flags().String("ignore", "", "A regex pattern which can be used for ignoring paths")
 	cmd.Flags().String("parser", "", fmt.Sprintf("Parser to use to parse the configurations. Valid parsers: %s", parser.Parsers()))
 	cmd.Flags().String("capabilities", "", "Path to JSON file that can restrict opa functionality against a given policy. Default: all operations allowed")
-	cmd.Flags().String("rego-version", "v0", "Which version of Rego syntax to use. Options: v0, v1")
+	cmd.Flags().String("rego-version", "v1", "Which version of Rego syntax to use. Options: v0, v1")
 
 	cmd.Flags().StringP("output", "o", output.OutputStandard, fmt.Sprintf("Output format for conftest results - valid options are: %s", output.Outputs()))
 	cmd.Flags().Bool("junit-hide-message", false, "Do not include the violation message in the JUnit test name")
