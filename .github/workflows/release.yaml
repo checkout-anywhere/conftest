@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - 'v*'
+permissions:
+  contents: read
+  packages: read
 env:
   IMAGE: openpolicyagent/conftest
   PLATFORMS: linux/amd64,linux/arm64
