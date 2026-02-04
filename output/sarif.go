@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"strconv"
 	"strings"
 
-	"github.com/open-policy-agent/opa/tester"
+	"github.com/open-policy-agent/conftest/internal/version"
+	"github.com/open-policy-agent/opa/v1/tester"
 	"github.com/owenrumney/go-sarif/v2/sarif"
 )
 
@@ -73,19 +75,10 @@ func addRuleIndex(run *sarif.Run, ruleID string, result Result, indices map[stri
 // addRule adds a new rule to the SARIF run with the given ID and result metadata.
 func addRule(run *sarif.Run, ruleID string, result Result) {
 	desc := getRuleDescription(ruleID)
-	rule := run.AddRule(ruleID).
+	run.AddRule(ruleID).
 		WithDescription(desc).
-		WithShortDescription(&sarif.MultiformatMessageString{
-			Text: &desc,
-		})
-
-	if result.Metadata != nil {
-		props := sarif.NewPropertyBag()
-		for k, v := range result.Metadata {
-			props.Add(k, v)
-		}
-		rule.WithProperties(props.Properties)
-	}
+		WithProperties(result.Metadata).
+		WithShortDescription(sarif.NewMultiformatMessageString(desc))
 }
 
 // addResult adds a result to the SARIF run
@@ -96,18 +89,20 @@ func addResult(run *sarif.Run, result Result, namespace, ruleType, level, fileNa
 		idx = addRuleIndex(run, ruleID, result, indices)
 	}
 
+	location := sarif.NewPhysicalLocation()
+	if loc := result.Location; loc != nil {
+		line, _ := strconv.Atoi(loc.Line.String())
+		location.ArtifactLocation = sarif.NewSimpleArtifactLocation(filepath.ToSlash(loc.File))
+		location.Region = sarif.NewRegion().WithStartLine(line).WithEndLine(line)
+	} else {
+		location.ArtifactLocation = sarif.NewSimpleArtifactLocation(filepath.ToSlash(fileName))
+	}
+
 	run.CreateResultForRule(ruleID).
 		WithRuleIndex(idx).
 		WithLevel(level).
 		WithMessage(sarif.NewTextMessage(result.Message)).
-		AddLocation(
-			sarif.NewLocationWithPhysicalLocation(
-				sarif.NewPhysicalLocation().
-					WithArtifactLocation(
-						sarif.NewSimpleArtifactLocation(filepath.ToSlash(fileName)),
-					),
-			),
-		)
+		AddLocation(sarif.NewLocationWithPhysicalLocation(location))
 }
 
 // Output outputs the results in SARIF format.
@@ -117,7 +112,10 @@ func (s *SARIF) Output(results CheckResults) error {
 		return fmt.Errorf("create sarif report: %w", err)
 	}
 
-	run := sarif.NewRunWithInformationURI(toolName, toolURI)
+	// SARIF versions must start with a number, so we remove the "v" prefix.
+	toolVersion := strings.TrimPrefix(version.Version, "v")
+	driver := sarif.NewVersionedDriver(toolName, toolVersion).WithInformationURI(toolURI)
+	run := sarif.NewRun(sarif.Tool{Driver: driver})
 	indices := make(map[string]int)
 
 	for _, result := range results {
@@ -164,23 +162,17 @@ func (s *SARIF) Output(results CheckResults) error {
 		}
 	}
 
-	// Add run metadata
-	exitCode := 0
 	exitDesc := exitNoViolations
 	if results.HasFailure() {
-		exitCode = 1
 		exitDesc = exitViolations
 	} else if results.HasWarning() {
 		exitDesc = exitWarnings
 	}
 
-	successful := true
-	invocation := sarif.NewInvocation()
-	invocation.ExecutionSuccessful = &successful
-	invocation.ExitCode = &exitCode
-	invocation.ExitCodeDescription = &exitDesc
-
-	run.Invocations = []*sarif.Invocation{invocation}
+	run.AddInvocations(sarif.NewInvocation().
+		WithExecutionSuccess(true).
+		WithExitCode(results.ExitCode()).
+		WithExitCodeDescription(exitDesc))
 
 	// Add the run to the report
 	report.AddRun(run)

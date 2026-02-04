@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/open-policy-agent/conftest/internal/version"
 )
 
 func TestSARIF_Output(t *testing.T) {
@@ -25,8 +26,9 @@ func TestSARIF_Output(t *testing.T) {
 					{
 						"tool": map[string]any{
 							"driver": map[string]any{
-								"informationUri": "https://github.com/open-policy-agent/conftest",
-								"name":           "conftest",
+								"informationUri": toolURI,
+								"name":           toolName,
+								"version":        version.Version,
 								"rules":          []any{},
 							},
 						},
@@ -66,8 +68,9 @@ func TestSARIF_Output(t *testing.T) {
 					{
 						"tool": map[string]any{
 							"driver": map[string]any{
-								"informationUri": "https://github.com/open-policy-agent/conftest",
-								"name":           "conftest",
+								"informationUri": toolURI,
+								"name":           toolName,
+								"version":        version.Version,
 								"rules": []map[string]any{
 									{
 										"id": "main/deny",
@@ -121,6 +124,10 @@ func TestSARIF_Output(t *testing.T) {
 					Warnings: []Result{
 						{
 							Message: "test warning",
+							Location: &Location{
+								File: "test.yaml",
+								Line: json.Number("123"),
+							},
 							Metadata: map[string]any{
 								"foo": "bar",
 							},
@@ -135,8 +142,9 @@ func TestSARIF_Output(t *testing.T) {
 					{
 						"tool": map[string]any{
 							"driver": map[string]any{
-								"informationUri": "https://github.com/open-policy-agent/conftest",
-								"name":           "conftest",
+								"informationUri": toolURI,
+								"name":           toolName,
+								"version":        version.Version,
 								"rules": []map[string]any{
 									{
 										"id": "main/warn",
@@ -171,6 +179,10 @@ func TestSARIF_Output(t *testing.T) {
 											"artifactLocation": map[string]any{
 												"uri": "test.yaml",
 											},
+											"region": map[string]any{
+												"startLine": float64(123),
+												"endLine":   float64(123),
+											},
 										},
 									},
 								},
@@ -203,8 +215,9 @@ func TestSARIF_Output(t *testing.T) {
 					{
 						"tool": map[string]any{
 							"driver": map[string]any{
-								"informationUri": "https://github.com/open-policy-agent/conftest",
-								"name":           "conftest",
+								"informationUri": toolURI,
+								"name":           toolName,
+								"version":        version.Version,
 								"rules": []map[string]any{
 									{
 										"id": "main/allow",
@@ -290,8 +303,9 @@ func TestSARIF_Output(t *testing.T) {
 					{
 						"tool": map[string]any{
 							"driver": map[string]any{
-								"informationUri": "https://github.com/open-policy-agent/conftest",
-								"name":           "conftest",
+								"informationUri": toolURI,
+								"name":           toolName,
+								"version":        version.Version,
 								"rules": []map[string]any{
 									{
 										"id": "main/skip",
@@ -366,8 +380,9 @@ func TestSARIF_Output(t *testing.T) {
 					{
 						"tool": map[string]any{
 							"driver": map[string]any{
-								"informationUri": "https://github.com/open-policy-agent/conftest",
-								"name":           "conftest",
+								"informationUri": toolURI,
+								"name":           toolName,
+								"version":        version.Version,
 								"rules": []map[string]any{
 									{
 										"id": "main/deny",
@@ -445,8 +460,9 @@ func TestSARIF_Output(t *testing.T) {
 					{
 						"tool": map[string]any{
 							"driver": map[string]any{
-								"informationUri": "https://github.com/open-policy-agent/conftest",
-								"name":           "conftest",
+								"informationUri": toolURI,
+								"name":           toolName,
+								"version":        version.Version,
 								"rules": []map[string]any{
 									{
 										"id": "main/success",
