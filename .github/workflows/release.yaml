@@ -7,9 +7,9 @@ on:
 permissions:
   contents: read
   packages: read
-env:
-  IMAGE: openpolicyagent/conftest
-  PLATFORMS: linux/amd64
+# env:
+#   IMAGE: checkoyt/conftest
+#   PLATFORMS: linux/amd64
 
 jobs:
   release:
