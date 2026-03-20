@@ -4,9 +4,12 @@ on:
   push:
     tags:
       - 'v*'
-env:
-  IMAGE: openpolicyagent/conftest
-  PLATFORMS: linux/amd64,linux/arm64
+permissions:
+  contents: write
+  packages: write
+# env:
+#   IMAGE: openpolicyagent/conftest
+#   PLATFORMS: linux/amd64,linux/arm64
 
 jobs:
   check:
@@ -26,81 +29,86 @@ jobs:
           args: check
           version: "~> v1"
 
-  docker-conftest:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    needs:
-      - check
-    steps:
-      - name: checkout source
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # ratchet:actions/checkout@v5
+  # docker-conftest:
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     contents: read
+  #   needs:
+  #     - check
+  #   steps:
+  #     - name: checkout source
+  #       uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # ratchet:actions/checkout@v5
 
-      - name: login to docker hub
-        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # ratchet:docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_LOGIN }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+  #     - name: login to docker hub
+  #       uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # ratchet:docker/login-action@v3
+  #       with:
+  #         username: ${{ secrets.DOCKER_LOGIN }}
+  #         password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: get version
-        id: get-version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+  #     - name: get version
+  #       id: get-version
+  #       run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-      - name: setup docker buildx
-        run: docker buildx create --name conftestbuild --use
+  #     - name: setup docker buildx
+  #       run: docker buildx create --name conftestbuild --use
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # ratchet:docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          build-args: |
-            VERSION=${{ steps.get-version.outputs.VERSION }}
-          tags: |
-            ${{ env.IMAGE }}:${{ steps.get-version.outputs.VERSION }}
-            ${{ env.IMAGE }}:latest
-          platforms: ${{ env.PLATFORMS }}
+  #     - name: Build and push Docker image
+  #       uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # ratchet:docker/build-push-action@v6
+  #       with:
+  #         context: .
+  #         push: true
+  #         build-args: |
+  #           VERSION=${{ steps.get-version.outputs.VERSION }}
+  #         tags: |
+  #           ${{ env.IMAGE }}:${{ steps.get-version.outputs.VERSION }}
+  #           ${{ env.IMAGE }}:latest
+  #         platforms: ${{ env.PLATFORMS }}
 
-  docker-examples:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    needs:
-      - check
-    steps:
-      - name: checkout source
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # ratchet:actions/checkout@v5
+  # docker-examples:
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     contents: read
+  #   needs:
+  #     - check
+  #   steps:
+  #     - name: checkout source
+  #       uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # ratchet:actions/checkout@v5
 
-      - name: login to docker hub
-        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # ratchet:docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_LOGIN }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+  #     - name: login to docker hub
+  #       uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # ratchet:docker/login-action@v3
+  #       with:
+  #         username: ${{ secrets.DOCKER_LOGIN }}
+  #         password: ${{ secrets.DOCKER_PASSWORD }}
 
-      - name: setup docker buildx
-        run: docker buildx create --name conftestbuild --use
+  #     - name: setup docker buildx
+  #       run: docker buildx create --name conftestbuild --use
 
-      - name: Build and push examples image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # ratchet:docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          target: examples
-          tags: ${{ env.IMAGE }}:examples
-          platforms: ${{ env.PLATFORMS }}
+  #     - name: Build and push examples image
+  #       uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # ratchet:docker/build-push-action@v6
+  #       with:
+  #         context: .
+  #         push: true
+  #         target: examples
+  #         tags: ${{ env.IMAGE }}:examples
+  #         platforms: ${{ env.PLATFORMS }}
 
   goreleaser:
     runs-on: ubuntu-latest
     permissions:
       contents: write # GoReleaser creates the GitHub release
     needs:
-      - docker-conftest
-      - docker-examples
+      - check
+    #   - docker-conftest
+    #   - docker-examples
     steps:
       - name: checkout source
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # ratchet:actions/checkout@v5
         with:
           fetch-depth: 0 # Need to fetch the full history for the GoReleaser changelog.
+
+      - name: get version
+        id: get-version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
       - name: setup go
         uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # ratchet:actions/setup-go@v6
